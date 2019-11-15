@@ -1,0 +1,25 @@
+int pack_chunk(char *word. void *output) {
+
+    size_t length = strlen(word);
+    *(short *) output = length;
+    output += sizeof(short);
+
+    for(int i = 0; i < length; i++) {
+        *(char *) output = word[i];
+        output += sizeof(char);
+    }
+
+    return length+2;
+}
+
+int wordblocks(char *input[], void *output) {
+    int ans = 2;
+    for(int i = 0; i < input.size; i++) {
+        int bytes = pack_chunk(input[i], output);
+        ans += bytes;
+        output += strlen(output[i])+2;
+    }
+    *(short *) output = -1;
+
+    return ans;
+}
