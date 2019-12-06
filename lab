@@ -1,25 +1,58 @@
-int pack_chunk(char *word. void *output) {
+#include <stdlib.h>
 
-    size_t length = strlen(word);
-    *(short *) output = length;
-    output += sizeof(short);
+#include "barrier.h"
 
-    for(int i = 0; i < length; i++) {
-        *(char *) output = word[i];
-        output += sizeof(char);
+Barrier barrier_create(int threads) {
+    Barrier b;
+
+    /* It is an error to call this with threads <= 0 */
+    if (threads <= 0) {
+        return NULL;
     }
 
-    return length+2;
+    b = calloc(1, sizeof(struct Barrier));
+
+    /* Initialize the mutex and condition variable for this barrier.  To
+     * be more robust, this would check the return values of the
+     * following functions and return NULL if they fail; however, on
+     * Linux they will not fail when used in this fashion. */
+    pthread_mutex_init(&b->lock, NULL);
+    pthread_cond_init(&b->barrier, NULL);
+
+    /* Record the number of threads that must arrive before the waiting
+     * threads are released.  b->nwaiting was already initialized to 0
+     * by calloc(), above. */
+    b->nthreads = threads;
+
+    return b;
 }
 
-int wordblocks(char *input[], void *output) {
-    int ans = 2;
-    for(int i = 0; i < input.size; i++) {
-        int bytes = pack_chunk(input[i], output);
-        ans += bytes;
-        output += strlen(output[i])+2;
+/* This is the function you must implement. */
+void barrier_wait(Barrier b) {
+    b->nwaiting++;
+    if(b->nthreads == b->nwaiting){
+        //Release all threads
+        pthread_cond_broadcast(&b->barrier);
     }
-    *(short *) output = -1;
+    else{
+        //Block current thread
+        pthread_cond_wait(&b->barrier, &b->lock);
+    }
+    pthread_mutex_unlock(&b->lock);
+    return;
+}
 
-    return ans;
+void barrier_destroy(Barrier b) {
+    /* It is difficult to safely ensure that there are no threads
+     * waiting on this barrier without additional metadata, so the
+     * documentation for this function simply declares that it is an
+     * error to destroy a barrier that has waiting threads.  As an
+     * exercise, you might think about how a safe destroy could be
+     * implemented; for example, you might need to separate nwaiting
+     * into the number of threads that have waited on this barrier,
+     * versus the number of threads that are currently present.  This
+     * would also allow the barrier to be reusable. */
+    pthread_cond_destroy(&b->barrier);
+    pthread_mutex_destroy(&b->lock);
+    free(b);
 }
